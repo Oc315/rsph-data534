@@ -1,0 +1,255 @@
+---
+title: "DATA534_HW2"
+author: "Oceanus Zhang"
+date: "2024-03-01"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Question 1
+Suppose now we want to fit a hypothesis (model) y = hθ(x) = θ0 + θ1x to the data, where x denotes the size of a house and y is the price of the house. You are asked to use gradient descent algorithm to estimate the model parameters θ0 and θ1
+
+a) Please explain what a cost function is, and write down the full expression of the cost function for our problem. (5%)
+The cost function for our linear regression model, with x being the size of the house, is a measure of the difference between the predicted house prices and the actual prices across all training examples. It's defined as: $J(θ_0,θ_1)=\frac{1}{2M}\sum_{i=1}^{m}(h_θ(x^(i^))-y^(i^))^2$ 
+where m is the number of training examples, $x^(i^)$ is the size of the ith house and $y^(i^)$ is the actual price of the ith house.
+
+(b) Please explain how gradient descent may make use of the cost function in estimating the model parameters. (5%)
+Gradient descent can be used to find the value of $θ_0$ and $θ_1$ that minimize the cost function $J(θ_0,θ_1)$. It updates θ0 and θ1 by moving the direction where J decreases the most rapid, which is the nagative of the gradient of J with a learning rate of α:
+$θ_0=θ_0-α\frac{\partial}{\partial θ_0 }J(θ_0,θ_1)$
+$θ_1=θ_1-α\frac{\partial}{\partial θ_0 }J(θ_0,θ_1)$
+
+(c) Complete the R function dJ1 below that computes the partial derivative of the cost function $J(θ_0,θ_1)$, with respect to θ1 i.e.,$\frac{\partial J(θ1)}{\partial (θ1) }$ . You may specify the input arguments of the functions to be θ0, θ1, m, x, y, where m is the number of training examples, and x and y are the input and output variables respectively. These functions will facilitate your implementation of the gradient descent algorithm in the next sub-question (Hints: the expression of $\frac{\partial J(θ1)}{\partial (θ1) }$ could be found in the handout, and the function $\frac{\partial J(θ0)}{\partial (θ0) }$ is provided in the question). (15%)
+```{r}
+housing_data <- read.csv("/Users/oceanuszhang/Desktop/534_hw2_housing.txt", header=TRUE)
+
+theta0 <- 0
+theta1 <- 1
+m <- length(housing_data$size) 
+x <- housing_data$size 
+y <- housing_data$price 
+
+## the functions to compute the partial derivative with respect to theta_0 ##
+dJ0 = function(theta0, theta1, m, x, y){
+  yhat= theta0 + theta1*x
+  value = (1/m)*sum(yhat-y)
+return(value)
+}
+### please define functions to compute the partial derivative with respect to theta_1
+### (fill in "xx" yourself)
+dJ1 = function(theta0, theta1, m, x, y){
+  yhat = theta0 + theta1*x
+  value = (1/m)*sum((yhat - y)*x)
+return(value)
+}
+
+dJ1_value <- dJ1(theta0, theta1, m, x, y)
+print(paste("dJ1 Value is:", dJ1_value))
+```
+
+(d) Write R code to perform gradient descent to estimate θ0 and θ1, using a threshold 10^−3 to determine convergence (Hints: Use a while loop; experiment the choice of the learning rate and initial values of the model parameters, and you will need to perform feature scaling on the feature even though there is only one feature because we have an implicit dummy feature x0 = 1). (25%)
+```{r}
+# Feature scaling 
+max_size <- max(housing_data$size)
+housing_data$size_scaled <- housing_data$size / max_size
+
+# Cost function
+J <- function(theta0, theta1, m, x, y){
+  yhat <- theta0 + theta1 * x
+  value <- (1 / (2 * m)) * sum((yhat - y)^2)
+  return(value)
+}
+
+m <- nrow(housing_data) 
+x <- housing_data$size_scaled 
+y <- housing_data$price
+
+# Initial guesses
+alpha <- 0.01 # Learning rate
+initial_theta0 <- 0 # Initial guess for theta0
+initial_theta1 <- 0 # Initial guess for theta1
+initial_J <- J(initial_theta0, initial_theta1, m, x, y)
+
+# Gradient descent
+convg_threshold = 0.001
+current_theta0 = initial_theta0
+current_theta1 = initial_theta1
+current_J = initial_J
+theta0_values = c(current_theta0)
+theta1_values =c(current_theta1)
+J_values = c(current_J)
+delta_J = 999
+
+while (delta_J > convg_threshold) {
+  # Compute gradients
+  grad0 <- dJ0(current_theta0, current_theta1, m, x, y)
+  grad1 <- dJ1(current_theta0, current_theta1, m, x, y)
+  
+  # Update parameters
+  new_theta0 = current_theta0 - alpha * grad0
+  new_theta1 = current_theta1 - alpha * grad1
+  
+  # Compute new cost
+  new_J = J(new_theta0, new_theta1, m, x, y)
+  
+  # Store updates
+  theta0_values = c(theta0_values, new_theta0)
+  theta1_values = c(theta1_values, new_theta1)
+  J_values = c(J_values, new_J)
+  
+  # Compute delta_J for convergence check
+  delta_J <- abs(new_J - current_J)
+  
+  # Update current values for next iteration
+  current_J <- new_J
+  current_theta0 <- new_theta0
+  current_theta1 <- new_theta1
+}
+
+# Output the results
+cat("Estimated theta0:", current_theta0, "\n")
+cat("Estimated theta1:", current_theta1, "\n")
+
+```
+
+(e) Store and plot the value of θ0, θ1 and the value of cost function J(θ0, θ1) at each iteration (i.e., generate 3 plots, each plot has the x-axis being the number of iteration, and y-axis being the value of θ0, θ1 or J(θ0, θ1) at a particular iteration). What do you observe for the value of J(θ0, θ1)? (5%)
+
+I found that the value of J(θ0, θ1) decreases over iterations, indicating that the algorithm is successfully minimizing the cost function. After a small number of iterations, the change in the cost function value between iterations became very small, indicating that the algorithm is converging to a minimum. Initially, there was a sharp decrease, followed by a more gradual reduction as the algorithm approaches the minimum.
+```{r}
+# Plotting theta0 values over iterations
+plot(theta0_values, type = 'l', col = 'navy', xlab = 'Iteration', ylab = 'Theta0',
+     main = 'Theta0 over Iterations')
+grid()
+
+# Plotting theta1 values over iterations
+plot(theta1_values, type = 'l', col = 'brown', xlab = 'Iteration', ylab = 'Theta1',
+     main = 'Theta1 over Iterations')
+grid()
+
+# Plotting cost function J values over iterations
+plot(J_values, type = 'l', col = 'darkgreen', xlab = 'Iteration', ylab = 'Cost Function J',
+     main = 'Cost Function J over Iterations')
+grid()
+```
+
+(f) What are the estimated model parameter values using the gradient descent algorithm? (5%)
+
+Estimated theta0: 71275.64 
+Estimated theta1: 602393 
+Price=71,275.64+602,393×(Size)
+
+(g) If you repeat (d) and (e) without feature scaling, what do you observe? (10%)
+
+When I try to repeat (d) and (e) without feature scaling, the chunk below have error. After debuging by printing how many time it run with printed value of my delta_J, I found that during the 32 time of loop, the delta_J I got was too large and it was printed as "INF", then during the 33 times it gives NaN and the whole loop stops. To avoid error, I comment out the code used for this.
+```{r}
+# Cost function
+J <- function(theta0, theta1, m, x, y){
+  yhat <- theta0 + theta1 * x
+  value <- (1 / (2 * m)) * sum((yhat - y)^2)
+  return(value)
+}
+
+m <- nrow(housing_data) 
+x <- housing_data$size
+y <- housing_data$price
+
+# Initial guesses
+alpha <- 0.01 # Learning rate
+initial_theta0 <- 0 # Initial guess for theta0
+initial_theta1 <- 0 # Initial guess for theta1
+initial_J <- J(initial_theta0, initial_theta1, m, x, y)
+
+# Gradient descent
+convg_threshold = 0.001
+current_theta0 = initial_theta0
+current_theta1 = initial_theta1
+current_J = initial_J
+theta0_values = c(current_theta0)
+theta1_values =c(current_theta1)
+J_values = c(current_J)
+delta_J = 999
+
+n <- 0
+print(delta_J)
+print(convg_threshold)
+
+
+#while (delta_J > convg_threshold) {
+  # Compute gradients
+#  grad0 <- dJ0(current_theta0, current_theta1, m, x, y)
+#  grad1 <- dJ1(current_theta0, current_theta1, m, x, y)
+#  n <- n+1
+ # print(n)
+  #new_theta0 = current_theta0 - alpha * grad0
+ # new_theta1 = current_theta1 - alpha * grad1
+ 
+# new_J = J(new_theta0, new_theta1, m, x, y)
+
+  #theta0_values = c(theta0_values, new_theta0)
+ # theta1_values = c(theta1_values, new_theta1)
+ # J_values = c(J_values, new_J)
+  
+ # delta_J <- abs(new_J - current_J)
+  
+ # current_J <- new_J
+ # current_theta0 <- new_theta0
+ # current_theta1 <- new_theta1
+  
+ # print(delta_J)
+#}
+
+# Output the results
+#cat("Estimated theta0:", current_theta0, "\n")
+#cat("Estimated theta1:", current_theta1, "\n")
+```
+
+
+### Question 2
+Apply normal equation approach to the same problem, and show that the  estimated model parameter values are the same as those obtained using the gradient descent algorithm in Q1. Note that you may need to perform feature scaling for the sake of valid comparison (although feature scaling is generally not required for normal equation approach). (15%)
+
+Normal Equation: $θ=(X^TX)^-1X^Ty$
+
+In previous steps using Gradient Descent we get Estimated theta0: 71275.64 and Estimated theta1: 602393. Now we use Normal Equation and got Estimated theta0: 71270.49 and Estimated theta1 602404.24. The answers are pretty similar, indicating that both approaches have successfully converged to the optimal solution. I personally guess the slight differences can be attributed to the inherent nature of the Gradient Descent algorithm, which may not achieve the exact minimum due to its stepwise approach and the precision of the convergence threshold.
+```{r}
+# Feature scaling 
+max_size2 <- max(housing_data$size)
+housing_data$size_scaled2 <- housing_data$size / max_size
+
+# Add a column of ones for the intercept term
+housing_data$intercept <- 1
+
+# Arrange the data frame so the intercept is the first column, followed by the scaled size and price
+housing_data <- housing_data[, c('intercept', 'size_scaled2', 'price')]
+
+# Convert to matrices for calculation
+X <- as.matrix(housing_data[, c('intercept', 'size_scaled2')])
+y <- as.matrix(housing_data$price)
+
+# Apply the normal equation
+theta <- solve(t(X) %*% X) %*% t(X) %*% y
+
+# Print the estimated parameters
+print(theta)
+
+```
+
+### Question 3
+Consider an alternative model y = θ0 + θ1x + ξ, where ξ follows a normal distribution N (0, 1). The following function defines the log-likelihood of the model parameters (θ0, θ1) given data. Please show that the maximum likelihood estimator (MLE) for this model is equivalent to the estimates in
+Q1 and Q2 (Hints: you may use the function optim() in HW1 to search for MLE, but mind the setting of fnscale if you use this function). (15%)
+```{r}
+
+neg_logL <- function(thetas, x, y, m){
+  sigma = 1 
+  -1 * (m * log(1 / (sqrt(2 * pi) * sigma)) - 1 / (sigma^2) * (1 / 2) * sum((thetas[1] + thetas[2] * x - y)^2))
+}
+
+initial_thetas <- c(0, 0) 
+optim_results <- optim(par = initial_thetas, fn = neg_logL, x = x, y = y, m = length(y), control = list(fnscale = -1))
+print(optim_results$par)
+
+```
+
+

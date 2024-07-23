@@ -1,0 +1,71 @@
+---
+title: "534_HW4"
+author: "Oceanus Zhang"
+date: "2024-04-19"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+Consider the same toy example discussed at the end of the first lecture covering neural network models (NNs). Suppose now you are asked to construct a NNs that outputs 1 only when the input features satisfy the following conditions: $$(1) x1 = 0, x2 = 1, or (2) x1 = 1, x2 = 0.$$ Consider the same NNs structure in the example (i.e., one hidden layer with three neurons including the bias unit). You are asked to modify this NNs in the example so that the desired classification (described above) can be achieved. (Hints/Suggestions: you may consider the same model 1 and model 2 in the example, and only modify model 3, before combining them to form the final NNs).
+
+(a) Please show the weigh matrices that control the mapping from layer 1 to layer 2 $$(i.e., \theta(1))$$ and from layer 2 to layer 3 $$(i.e.\theta(2))$$. Note that you need to consider the bias units (as we discussed in the lecture). (50%)
+
+```{r}
+
+# Matrix for weights from Layer 1 to Layer 2 
+Theta1 <- matrix(c(-10, 20, 20,   # Bias, x1, x2 for Neuron 1
+                   -10, 20, 20),  # Bias, x1, x2 for Neuron 2
+                 nrow = 2,        # Two neurons in the hidden layer
+                 ncol = 3,        # Three inputs including bias
+                 byrow = TRUE)    
+
+# Print Theta1
+print("Weights from Layer 1 to Layer 2 (Theta1):")
+print(Theta1)
+
+# Matrix for weights from Layer 2 to Layer 3 
+# Includes bias unit for the output neuron
+Theta2 <- matrix(c(-30, 20, 20),  # Bias, output from Neuron 1, output from Neuron 2
+                 nrow = 1,        # Single output neuron
+                 ncol = 3)        # Three inputs including bias
+
+# Print Theta2
+print("Weights from Layer 2 to Layer 3 (Theta2):")
+print(Theta2)
+```
+
+(b) Please show your model by completing the table below (40%):
+
+```{r}
+library(neuralnet)
+
+training_data <- data.frame(x1 = c(0, 0, 1, 1),
+                            x2 = c(0, 1, 0, 1),
+                            y = c(0, 1, 1, 0))
+# Training
+nn <- neuralnet(y ~ + x1 + x2, data = training_data, hidden=c(2), linear.output = FALSE, threshold=10e-3)
+plot(nn)
+
+# Predictions
+predictions <- compute(nn, training_data)
+output_probabilities <- predictions$net.result
+
+# Convert probabilities to binary outputs (0 or 1)
+predicted_output <- ifelse(output_probabilities > 0.5, 1, 0)
+results <- cbind(training_data, predicted_output)
+print(results)
+
+```
+
+## Question 2
+Please describe the main advantages of NNs in comparison with logistic regression in solving high-dimensional non-linear classification problems. (10%)
+
+Answer: Neural Networks are better than logistic regression for complex classification tasks because they can handle complicated patterns more effectively. Neural networks use multiple layers and special functions to learn from data, making them good at dealing with large sets of features. They can automatically identify important features from data, adapt to different types of problems, and usually perform better when there's a lot of data. They also have special techniques to prevent overfitting, which helps them perform well on new, unseen data. In contrast, logistic regression may not perform as well without manually adjusting the features, especially when the data patterns are not straightforward or when there are too many features. Also, the number of polynomial terms (“new features”) grows very quickly as
+number of original features; it is computationally too intensive even of we just consider relatively low degree polynomial terms. So Neural networks are more suited for non-linear problems when feature space is huge.
+
+
+

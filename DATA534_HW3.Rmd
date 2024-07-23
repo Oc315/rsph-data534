@@ -1,0 +1,289 @@
+---
+title: "DATA534 HW3"
+author: "Oceanus Zhang"
+date: "2024-03-27"
+output: pdf_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Q1: What is the main assumption or approximation made in the Naive Bayes classifier regarding the relationship between the features? Can you think of a real-life example this assumption may largely hold? (10%)
+
+The main assumption behind the Naive Bayes classifier is the conditional
+independence of features. The algorithm assumes each feature or input
+variable in the dataset is independent of all other features given the
+class label. A Real-life Example would be spam email detection. In this
+scenario, certain keywords or features like "free" or "urgent" might
+individually contribute to the likelihood of an email being spam. The
+Naive Bayes classifier would treat the presence of each keyword
+independently when calculating the probability that an email is spam or
+not, despite the possible correlations between them in real-life emails.
+
+## Q2: The provided dataset records students' admission status to university and two exam scores.
+
+(a) Plot values of variables exam2(x2, on y-axis) against exam1(x1, on x-axis) and color the data points differently based on the output variable admission. (5%)
+
+```{r}
+
+admission <- read.csv("/Users/oceanuszhang/Desktop/admission.txt") 
+head(admission)
+
+library(ggplot2)
+
+ggplot(admission, aes(x=exam1, y=exam2, color=factor(admission))) +
+  geom_point() + 
+  scale_color_manual(values = c("0" = "blue", "1" = "red")) + 
+  labs(color="Admission Status", x="Exam 1 Score", y="Exam 2 Score") +
+  xlim(0, 100) +  
+  ylim(0, 100) +  
+  theme_minimal()
+
+```
+
+(b) Consider a hypothesis h_theta (x) = g(thetaT x) = g(theta_0 + theta_1x1 + theta_2x2). Please estimate the values of theta_0, theta_1 and theta_2, using gradient descent (structurally similar to HW2). You may utilize the functions provided below or use your own functions. Note:You may use x/max(x) for rescaling , and use threshold 1e$-$4 learning rate 0.01, initial values theta_0 = $-$120, theta_1 = 1 and theta_2 = 1,for determining convergence.(20%)
+
+The estimated values are: theta0 = -119.988 theta1 = 1.008982 theta2 =
+1.008976
+
+```{r}
+require(boot)
+library(boot)
+
+# Extracting data
+x1 <- admission$exam1
+x2 <- admission$exam2
+y <- admission$admission
+
+x1 <- x1 / max(x1)
+x2 <- x2 / max(x2)
+
+# Initial parameter values
+theta0 <- -120
+theta1 <- 1
+theta2 <- 1
+yhat <- inv.logit(theta0 + theta1 * x1 + theta2 * x2)
+ 
+# Define the cost function
+cost <- function(y, yhat, lambda = 0) {
+  epsilon <- 1e-8
+  yhat <- pmax(epsilon, pmin(1 - epsilon, yhat))
+  m <- length(y)
+  regularization_term <- lambda / (2 * m) * sum(theta[-1]^2)  # Regularization term
+  cost_value <- - (1 / m) * sum(y * log(yhat) + (1 - y) * log(1 - yhat)) + regularization_term
+  return(cost_value)
+}
+
+#total cost #
+J = function(theta0, theta1,theta2, m, x1,x2, y){
+yhat = inv.logit(theta0 + theta1*x1 + theta2*x2)
+sum_cost = (1/m)*sum(mapply(FUN=cost,y,yhat))
+sum_cost
+}
+
+
+# Functions to compute the partial derivative terms
+dJ0 <- function(theta0, theta1, theta2, m, x1, x2, y) {
+  yhat <- inv.logit(theta0 + theta1 * x1 + theta2 * x2)
+  return((1/m) * sum((yhat - y) * 1))
+}
+
+dJ1 <- function(theta0, theta1, theta2, m, x1, x2, y) {
+  yhat <- inv.logit(theta0 + theta1 * x1 + theta2 * x2)
+  return((1/m) * sum((yhat - y) * x1))
+}
+
+dJ2 <- function(theta0, theta1, theta2, m, x1, x2, y) {
+  yhat <- inv.logit(theta0 + theta1 * x1 + theta2 * x2)
+  return((1/m) * sum((yhat - y) * x2))
+}
+
+# Gradient descent function with tracking of parameter history
+gradient_descent <- function(theta0, theta1, theta2, x1, x2, y, learning_rate = 0.01, threshold = 1e-4, max_iterations = 10000) {
+  m <- length(y)
+  iteration <- 0
+  cost_history <- numeric(max_iterations)
+  theta0_history <- numeric(max_iterations)
+  theta1_history <- numeric(max_iterations)
+  theta2_history <- numeric(max_iterations)
+  
+  repeat {
+    iteration <- iteration + 1
+    grad0 <- dJ0(theta0, theta1, theta2, m, x1, x2, y)
+    grad1 <- dJ1(theta0, theta1, theta2, m, x1, x2, y)
+    grad2 <- dJ2(theta0, theta1, theta2, m, x1, x2, y)
+    
+    theta0 <- theta0 - learning_rate * grad0
+    theta1 <- theta1 - learning_rate * grad1
+    theta2 <- theta2 - learning_rate * grad2
+    
+    theta0_history[iteration] <- theta0
+    theta1_history[iteration] <- theta1
+    theta2_history[iteration] <- theta2
+    cost_history[iteration] <- J(theta0, theta1, theta2, m, x1, x2, y)
+    
+    # convergence check
+    if(iteration > 1 && abs(cost_history[iteration] - cost_history[iteration - 1]) < threshold) {
+      break
+    }
+    if(iteration >= max_iterations) {
+      break
+    }
+  }
+  
+  list(theta0 = theta0, theta1 = theta1, theta2 = theta2, iterations = iteration,
+       cost_history = cost_history[1:iteration], theta0_history = theta0_history[1:iteration],
+       theta1_history = theta1_history[1:iteration], theta2_history = theta2_history[1:iteration])
+}
+theta <- c(theta0, theta1, theta2)
+# Calculate the proportion of admitted students
+proportion_admitted <- mean(y)
+
+# Rescale the predicted probabilities
+scaled_yhat <- yhat / mean(yhat) * proportion_admitted
+
+# Perform gradient descent and print the results
+result <- gradient_descent(theta0, theta1, theta2, x1, x2, y)
+print(result)
+
+```
+
+(c) Plot the values of the model parameters and the cost function at each iteration of the gradient descent.(10%)
+
+```{r}
+theta0 <- -119.988
+theta1 <- 1.008982
+theta2 <- 1.008976
+# Plotting
+par(mfrow=c(2,2)) # Set up the plotting area to have 4 panels
+
+# Plot theta0 history
+plot(result$theta0_history, type='l', col='red', xlab='Iteration', ylab='Theta 0', main='Theta 0 Over Iterations')
+
+# Plot theta1 history
+plot(result$theta1_history, type='l', col='orange', xlab='Iteration', ylab='Theta 1', main='Theta 1 Over Iterations')
+
+# Plot theta2 history
+plot(result$theta2_history, type='l', col='darkgreen', xlab='Iteration', ylab='Theta 2', main='Theta 2 Over Iterations')
+
+# Plot cost history
+plot(result$cost_history, type='l', col='navy', xlab='Iteration', ylab='Cost', main='Cost Over Iterations')
+
+```
+
+(d) What are the estimated parameter values? Based on the estimated model parameters, write down the formula that represents the decision boundary. Plot the decision boundary (on top the figure drawn in Q2(a)) and comment on the decision boundary. There are many ways to plot a fitted curve on an existing plot (e.g. use the curve() function). Note: Since you have rescaled the input variables, you also need to rescale the plot in Q 2(a)) accordingly). (20%)
+
+Estimated parameter values theta0 = -119.988 theta1 = 1.008982 theta2 =
+1.008976
+
+Formula: x2 = -119.988/1.008976 - (1.008982/1.008976)x1
+
+The decision boundary generally represent all points except a few. The
+red dots above the boundary represent admitted students and blue dots
+below the boundary are un-admitted students.
+
+```{r}
+library(ggplot2)
+
+# Parameters for the decision boundary line
+intercept <- 119.988 / 1.008976
+slope <- -1.008982 / 1.008976
+
+# Calculate a sequence of x values (exam1 scores) covering the observed range
+x_range <- seq(min(admission$exam1), max(admission$exam1), length.out = 100)
+
+# Calculate corresponding y values (exam2 scores) based on the decision boundary
+y_range <- (intercept + slope * x_range)
+
+# Add the decision boundary to the plot
+ggplot(admission, aes(x=exam1, y=exam2, color=factor(admission))) +
+  geom_point() +
+  geom_abline(intercept = intercept, slope = slope, color = "black", size = 1) +
+  scale_color_manual(values = c("0" = "blue", "1" = "red")) +
+  labs(color = "Admission Status") +
+  xlab("Normalized Exam 1 Score") +
+  ylab("Normalized Exam 2 Score") +
+  ggtitle("Admission Status with Decision Boundary") +
+  xlim(0, 100) +  
+  ylim(0, 100) +  
+  theme_minimal()
+
+```
+
+(e) Someone approaches you and wants you to make a prediction if a
+    student will be admitted based on his exam scores. You are told that
+    his score are 68 and 75 in exam1 and exam2 respectively (note that
+    you do not need to re-fit the model). Please annotate his scores on
+    the plot generated in 3(d). Which side of the decision boundary his
+    scores lie? Based on the plot, what prediction you will make? (10%)
+
+Based on the plot, the student will be admitted!
+
+```{r}
+# Assuming you've already calculated the normalized scores and have the intercept and slope
+normalized_x1 <- 68 / max(admission$exam1)
+normalized_x2 <- 75 / max(admission$exam2)
+intercept <- 119.988 / 1.008976
+slope <- -1.008982 / 1.008976
+
+# Now create the plot with the decision boundary and annotated new student scores
+ggplot(admission, aes(x=exam1, y=exam2, color=factor(admission))) +
+  geom_point() + # Plot the data points
+  geom_point(aes(x=68, y=75), color="gold", size=4) + # Annotate the new student's scores
+  annotate("text", x=68, y=75, label="New Student", hjust=0, vjust=-1.5, size=3.5) + # Add text annotation
+  scale_color_manual(values = c("0" = "blue", "1" = "red")) +
+  geom_abline(intercept = intercept, slope = slope, color = "black", size = 1) +
+  labs(color = "Admission Status", x = "Exam 1 Score", y = "Exam 2 Score") +
+  ggtitle("Admission Status with Decision Boundary") +
+  theme_minimal()
+
+```
+
+(f) Instead of using the decision boundary to make the prediction for 3(e), please compute the value of the sigmoid function h_theta (x) = g(thetaT x) = g(theta_0 + theta_1x1 + theta_2x2) based on the estimated model parameters and the student's scores. What is the value of the sigmoid function? What prediction will you make? And is the prediction consistent with the answer in 3(e)? (15%)
+
+value of the sigmoid function = 0.6645816 Result = "Admitted"
+
+Based on the extremely small sigmoid function value > 0.5, the
+prediction for the student with exam scores of 68 and 75 would be
+Admitted", corresponding with the plot above showing the student is
+above the boundary line and should be admitted.
+
+```{r}
+theta0 <- -119.988
+theta1 <- 1.008982
+theta2 <- 1.008976
+
+proportion_admitted <- mean(y)
+new_student_x1 <- 68 / max(admission$exam1)
+new_student_x2 <- 75 / max(admission$exam2)
+new_student_yhat <- inv.logit(result$theta0 + result$theta1 * new_student_x1 + result$theta2 * new_student_x2)
+new_student <- new_student_yhat / mean(yhat) * proportion_admitted
+
+print(new_student)
+if (new_student > 0.5) {
+  print("The new student is admitted.")
+} else {
+  print("The new student is not admitted.")
+}
+
+```
+
+## Q3: 
+(a) Use your own words, state why add regularization terms in the
+cost function may alleviate over-fitting.(5%)
+
+By adding a regularization term to the cost function, it constrains the
+magnitude of the coefficients. This can lead to simpler models that
+generalize better to new data. Regularization works by balancing the
+trade-off between fitting the training data well and keeping the model
+parameters small to maintain simplicity.
+
+(b) What are the main difference(s) between Ridge Regression and LASSO? (5%)
+
+The main difference between Ridge Regression and LASSO lies in the type
+of regularization term added to the cost function. ridge regression shrink parameter values but do not allow them to be exactly zero; LASSO allows parameter values to shrink to zero.
+
